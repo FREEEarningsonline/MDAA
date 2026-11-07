@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mustafa Digital Academy - Admin Panel</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #4A148C;
+            --primary-hover: #6A1B9A;
+            --secondary: #0288D1;
+            --success: #2E7D32;
+            --warning: #F57C00;
+            --danger: #D32F2F;
+            --bg-body: #f1f5f9;
+            --sidebar-width: 260px;
+            --border-color: #e2e8f0;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg-body); color: var(--text-dark); display: flex; height: 100vh; overflow: hidden; }
+
+        /* ====== LOGIN MODAL ====== */
+        #loginScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #2A0845 0%, #4A148C 50%, #1e1b4b 100%);
+            display: flex; justify-content: center; align-items: center; z-index: 99999; padding: 20px;
+        }
+        .login-card {
+            background: #ffffff; padding: 35px 30px; border-radius: 18px; width: 100%; max-width: 420px;
+            box-shadow: 0 20px 45px rgba(0,0,0,0.4); text-align: center;
+        }
+        .login-card h2 { color: var(--primary); font-size: 22px; margin-bottom: 6px; font-weight: 700; }
+        .login-card p { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+        .login-group { text-align: left; margin-bottom: 14px; }
+        .login-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #334155; }
+        .login-group input { width: 100%; padding: 11px 13px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; }
+        .login-group input:focus { border-color: var(--primary); }
+        .btn-login { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 5px; }
+        .btn-login:hover { background: var(--primary-hover); }
+        .btn-bypass { width: 100%; padding: 10px; background: #f1f5f9; color: #334155; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+        .btn-bypass:hover { background: #e2e8f0; }
+
+        /* ====== MAIN APPLICATION CONTAINER ====== */
+        #appContainer { display: flex; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+
+        /* SIDEBAR (MENU) */
+        .sidebar {
+            width: var(--sidebar-width); min-width: var(--sidebar-width); background: #1a0833; color: white;
+            display: flex; flex-direction: column; height: 100vh; z-index: 1000;
+            transition: transform 0.3s ease, left 0.3s ease; border-right: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-brand {
+            padding: 20px; font-size: 16px; font-weight: bold; display: flex;
+            align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.2);
+        }
+        .sidebar-brand div { display: flex; align-items: center; gap: 10px; }
+        .sidebar-brand i { color: #facc15; font-size: 20px; }
+        .close-sidebar-btn { display: none; background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
+
+        .nav-list { list-style: none; padding: 12px 8px; overflow-y: auto; flex: 1; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+            color: #cbd5e1; font-size: 13.5px; border-radius: 8px; cursor: pointer;
+            transition: all 0.2s; margin-bottom: 4px; font-weight: 500;
+        }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.08); color: white; }
+        .nav-item.active { background: var(--primary); color: white; font-weight: 600; box-shadow: 0 4px 12px rgba(74, 20, 140, 0.4); }
+        .nav-item i { width: 20px; text-align: center; font-size: 15px; }
+
+        .sidebar-footer {
+            padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: space-between;
+        }
+        .user-tag { font-size: 12px; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+
+        /* BACKDROP FOR MOBILE */
+        .sidebar-backdrop {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.55); z-index: 999; backdrop-filter: blur(2px);
+        }
+        .sidebar-backdrop.active { display: block; }
+
+        /* MAIN CONTENT WRAPPER */
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* TOPBAR */
+        .topbar {
+            height: 60px; min-height: 60px; background: white; border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 10;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 12px; }
+        .menu-toggle-btn {
+            background: var(--primary); color: white; border: none; padding: 8px 14px;
+            border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px; transition: 0.2s;
+        }
+        .menu-toggle-btn:hover { background: var(--primary-hover); }
+        .topbar h2 { font-size: 17px; font-weight: 700; color: #1e293b; }
+
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+        .connected { background: #dcfce7; color: #15803d; }
+        .disconnected { background: #fee2e2; color: #b91c1c; }
+
+        .content-area { flex: 1; padding: 20px; overflow-y: auto; }
+
+        /* SECTIONS & CARDS */
+        .page-section { display: none; }
+        .page-section.active { display: block; animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card {
+            background: white; border-radius: 12px; border: 1px solid var(--border-color);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03); padding: 20px; margin-bottom: 22px;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1.5px solid #f1f5f9; padding-bottom: 10px; }
+        .card-header h3 { font-size: 16px; color: var(--text-dark); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+        /* FORMS */
+        .form-row { display: flex; gap: 15px; margin-bottom: 14px; }
+        .form-group { flex: 1; display: flex; flex-direction: column; }
+        label { font-size: 12.5px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+        input, select, textarea {
+            padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px;
+            font-size: 13.5px; background: white; outline: none; transition: 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+
+        /* IMAGE UPLOAD WITH IMGBB */
+        .upload-box {
+            display: flex; gap: 8px; align-items: center; background: #f8fafc;
+            border: 1.5px dashed #cbd5e1; padding: 8px 12px; border-radius: 8px; margin-top: 5px; flex-wrap: wrap;
+        }
+        .upload-btn-label {
+            background: #e2e8f0; color: #334155; padding: 6px 12px; border-radius: 6px;
+            font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .upload-btn-label:hover { background: #cbd5e1; }
+        .upload-status { font-size: 11px; color: #64748b; font-weight: 500; }
+
+        /* BUTTONS */
+        button, .btn {
+            background: var(--primary); color: white; border: none; padding: 10px 18px;
+            border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        button:hover { background: var(--primary-hover); }
+        .btn-secondary { background: var(--secondary); }
+        .btn-secondary:hover { background: #0277bd; }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: #b71c1c; }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: #1b5e20; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* ITEMS LIST */
+        .items-list { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        .item-card {
+            background: white; border: 1px solid var(--border-color); padding: 14px 16px;
+            border-radius: 10px; display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; transition: 0.15s; flex-wrap: wrap;
+        }
+        .item-card:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+
+        /* STATS OVERVIEW CARDS */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+        .stat-card {
+            background: white; border: 1px solid var(--border-color); border-radius: 12px;
+            padding: 16px; display: flex; align-items: center; gap: 14px;
+        }
+        .stat-icon {
+            width: 45px; height: 45px; border-radius: 10px; display: flex;
+            align-items: center; justify-content: center; font-size: 20px;
+        }
+
+        /* MODAL */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 10000;
+        }
+        .modal-content {
+            background: white; border-radius: 12px; width: 90%; max-width: 650px;
+            padding: 22px; max-height: 85vh; overflow-y: auto;
+        }
+
+        /* ====== RESPONSIVE & MOBILE RULES ====== */
+        @media (max-width: 900px) {
+            .sidebar {
+                position: fixed; top: 0; left: -270px; width: 270px;
+                box-shadow: 5px 0 25px rgba(0,0,0,0.4);
+            }
+            .sidebar.open { left: 0; }
+            .close-sidebar-btn { display: block; }
+            .form-row { flex-direction: column; gap: 10px; }
+        }
+        @media (min-width: 901px) {
+            .menu-toggle-btn { display: none; } /* Hide on PC since sidebar is already fixed */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== LOGIN VIEW ==================== -->
+    <div id="loginScreen">
+        <div class="login-card">
+            <div style="font-size: 42px; color: #4A148C; margin-bottom: 10px;"><i class="fa-solid fa-graduation-cap"></i></div>
+            <h2>Mustafa Digital Academy</h2>
+            <p>Admin Portal Sign-In</p>
+            
+            <div class="login-group">
+                <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+                <input type="email" id="loginEmail" value="nazimmustafa785@gmail.com">
+            </div>
+            <div class="login-group">
+                <label><i class="fa-solid fa-lock"></i> Password</label>
+                <input type="password" id="loginPassword" placeholder="Enter your password">
+            </div>
+            
+            <button class="btn-login" onclick="loginAdmin()"><i class="fa-solid fa-right-to-bracket"></i> Login to Admin Panel</button>
+            <button class="btn-bypass" onclick="bypassLogin()"><i class="fa-solid fa-bolt"></i> Enter Panel Directly (Without Auth)</button>
+            <div id="loginAlert" style="font-size: 13px; color: var(--danger); margin-top: 10px; display: none;"></div>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN DASHBOARD LAYOUT ==================== -->
+    <div id="appContainer">
+        
+        <!-- BACKDROP FOR MOBILE MENU -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
+
+        <!-- SIDEBAR (MENU NAVIGATION) -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div>
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <span>Mustafa Academy</span>
+                </div>
+                <button class="close-sidebar-btn" onclick="toggleSidebar(false)"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <ul class="nav-list">
+                <li class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> Dashboard Overview</li>
+                <li class="nav-item" data-tab="courses" onclick="switchTab('courses')"><i class="fa-solid fa-book-open"></i> Courses & Lectures</li>
+                <li class="nav-item" data-tab="live" onclick="switchTab('live')"><i class="fa-solid fa-video"></i> Live Sessions</li>
+                <li class="nav-item" data-tab="library" onclick="switchTab('library')"><i class="fa-solid fa-book-bookmark"></i> Digital Library (Books)</li>
+                <li class="nav-item" data-tab="categories" onclick="switchTab('categories')"><i class="fa-solid fa-layer-group"></i> Categories</li>
+                <li class="nav-item" data-tab="banners" onclick="switchTab('banners')"><i class="fa-solid fa-images"></i> App Banners</li>
+                <li class="nav-item" data-tab="banks" onclick="switchTab('banks')"><i class="fa-solid fa-building-columns"></i> Payment Accounts</li>
+                <li class="nav-item" data-tab="orders" onclick="switchTab('orders')"><i class="fa-solid fa-cart-shopping"></i> Orders & Verifications</li>
+                <li class="nav-item" data-tab="instructors" onclick="switchTab('instructors')"><i class="fa-solid fa-user-tie"></i> Instructors & Approvals</li>
+                <li class="nav-item" data-tab="support" onclick="switchTab('support')"><i class="fa-solid fa-headset"></i> Support & Policies</li>
+                <li class="nav-item" data-tab="settings" onclick="switchTab('settings')"><i class="fa-solid fa-gear"></i> Settings & ImgBB API</li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="user-tag" id="adminUserTag">Admin Active</div>
+                <button onclick="logoutAdmin()" class="btn-danger btn-sm" title="Logout"><i class="fa-solid fa-power-off"></i></button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <div class="main-wrapper">
+            <!-- TOPBAR -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="menu-toggle-btn" onclick="toggleSidebar(true)">
+                        <i class="fa-solid fa-bars"></i> Menu
+                    </button>
+                    <h2 id="pageTitle">Dashboard Overview</h2>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="connBadge" class="status-badge disconnected">
+                        <i class="fa-solid fa-circle-dot"></i> Connecting...
+                    </span>
+                </div>
+            </header>
+
+            <!-- CONTENT SECTIONS -->
+            <main class="content-area">
+
+                <!-- 1. DASHBOARD OVERVIEW -->
+                <section id="sec-dashboard" class="page-section active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #ede9fe; color: #6d28d9;"><i class="fa-solid fa-book-open"></i></div>
+                            <div>
+                                <div style="font-size: 12px; color: var(--text-muted);">Total Courses</div>
+                                <div style="font-size: 20px; font-weight: bold;" id="dashCoursesCount">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #e0f2fe; color: #0284c7;"><i class="fa-solid fa-video"></i></div>
+                            <div>
+                                <div style="font-size: 12px; color: var(--text-muted);">Live Classes</div>
+                                <div style="font-size: 20px; font-weight: bold;" id="dashLiveCount">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #fef3c7; color: #d97706;"><i class="fa-solid fa-cart-shopping"></i></div>
+                            <div>
+                                <div style="font-size: 12px; color: var(--text-muted);">Pending Orders</div>
+                                <div style="font-size: 20px; font-weight: bold;" id="dashPendingCount">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: #dcfce7; color: #16a34a;"><i class="fa-solid fa-book-bookmark"></i></div>
+                            <div>
+                                <div style="font-size: 12px; color: var(--text-muted);">Library Books</div>
+                                <div style="font-size: 20px; font-weight: bold;" id="dashBooksCount">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-compass" style="color: var(--primary);"></i> Navigation Quick-Links</h3>
+                        </div>
+                        <p style="font-size: 13.5px; color: var(--text-muted); line-height: 1.6; margin-bottom: 15px;">
+                            Click any button below or use the left Menu (☰ on mobile) to switch between different sections:
+                        </p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="switchTab('courses')"><i class="fa-solid fa-book-open"></i> Courses</button>
+                            <button onclick="switchTab('live')" style="background: #0284c7;"><i class="fa-solid fa-video"></i> Live Classes</button>
+                            <button onclick="switchTab('library')" style="background: #2E7D32;"><i class="fa-solid fa-book-bookmark"></i> Books</button>
+                            <button onclick="switchTab('orders')" style="background: #E65100;"><i class="fa-solid fa-cart-shopping"></i> Orders</button>
+                            <button onclick="switchTab('settings')" style="background: #00838F;"><i class="fa-solid fa-gear"></i> ImgBB Settings</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. COURSES & LECTURES -->
+                <section id="sec-courses" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i> Create New Course</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>Course Title</label>
+                                <input type="text" id="cTitle" placeholder="e.g. Master Full Stack Web Development">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>Course Category</label>
+                                <select id="cCategory"><option value="">-- No Category (General) --</option></select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Price ($)</label>
+                                <input type="number" id="cPrice" placeholder="e.g. 299">
+                            </div>
+                            <div class="form-group">
+                                <label>Discount Price ($)</label>
+                                <input type="number" id="cDiscount" placeholder="e.g. 199">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Course Thumbnail / Picture</label>
+                            <input type="text" id="cPic" placeholder="Enter Picture URL or upload image...">
+                            <div class="upload-box">
+                                <label class="upload-btn-label">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload to ImgBB
+                                    <input type="file" accept="image/*" style="display:none;" onchange="uploadImage(this, 'cPic', 'cPicStatus')">
+                                </label>
+                                <span class="upload-status" id="cPicStatus">Optional: Choose an image to host on ImgBB</span>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Short Description</label>
+                            <textarea id="cDesc" rows="2" placeholder="Course highlights, key features..."></textarea>
+                        </div>
+
+                        <!-- Lectures Builder -->
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 16px; border: 1.5px solid #e2e8f0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <strong style="font-size: 13.5px;"><i class="fa-solid fa-list-ol"></i> Initial Lectures Builder</strong>
+                                <button type="button" class="btn-sm btn-success" onclick="addLectureRow()">+ Add Another Lecture</button>
+                            </div>
+                            <div id="newCourseLectures">
+                                <div class="lecture-row" style="display:flex; gap:10px; margin-bottom:8px; align-items:center;">
+                                    <span style="font-weight: bold; font-size: 13px; color: #64748b;">#1</span>
+                                    <input type="text" class="lec-title" placeholder="Lecture Title" style="flex: 2;">
+                                    <input type="text" class="lec-url" placeholder="YouTube / Drive Video URL" style="flex: 3;">
+                                    <input type="number" class="lec-seq" value="1" style="width: 60px;">
+                                    <button type="button" class="btn-danger btn-sm" onclick="removeLectureRow(this)"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="addCourse()"><i class="fa-solid fa-check"></i> Create Course & Save to Firebase</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-layer-group"></i> Existing Courses</h3>
+                        </div>
+                        <div class="items-list" id="courseList"></div>
+                    </div>
+                </section>
+
+                <!-- 3. LIVE SESSIONS -->
+                <section id="sec-live" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-video" style="color: #0284c7;"></i> Add Live Session</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>Session Title</label>
+                                <input type="text" id="lTitle" placeholder="e.g. Jetpack Compose Weekly Class">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>Access Type</label>
+                                <select id="lAccessType" onchange="toggleLivePaidFields()">
+                                    <option value="Free" selected>Free (No Payment Required)</option>
+                                    <option value="Paid">Paid (Require Payment)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row" id="livePaidRow" style="display: none; background: #fffbeb; padding: 12px; border-radius: 8px; border: 1.5px solid #fde68a;">
+                            <div class="form-group">
+                                <label>Price ($)</label>
+                                <input type="number" id="lPrice" placeholder="e.g. 10" value="10">
+                            </div>
+                            <div class="form-group">
+                                <label>Payment Interval</label>
+                                <select id="lFreq">
+                                    <option value="Daily">Daily</option>
+                                    <option value="Weekly" selected>Weekly</option>
+                                    <option value="Monthly">Monthly</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Session Banner Picture</label>
+                            <input type="text" id="lPic" placeholder="Enter Picture URL or upload image...">
+                            <div class="upload-box">
+                                <label class="upload-btn-label">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload to ImgBB
+                                    <input type="file" accept="image/*" style="display:none;" onchange="uploadImage(this, 'lPic', 'lPicStatus')">
+                                </label>
+                                <span class="upload-status" id="lPicStatus">Optional: Host image via ImgBB</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Google Meet / Stream Link</label>
+                                <input type="text" id="lMeet" placeholder="https://meet.google.com/xyz-abc-def">
+                            </div>
+                            <div class="form-group">
+                                <label>Start Time / Schedule</label>
+                                <input type="text" id="lTime" placeholder="e.g. Every Saturday, 8:00 PM PKT">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label>Instructor Name</label>
+                            <input type="text" id="lInstructor" value="Nazim Mustafa">
+                        </div>
+                        <button onclick="addLiveSession()"><i class="fa-solid fa-plus"></i> Save Live Session</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-broadcast-tower"></i> Scheduled Live Sessions</h3>
+                        </div>
+                        <div class="items-list" id="liveList"></div>
+                    </div>
+                </section>
+
+                <!-- 4. DIGITAL LIBRARY (BOOKS) -->
+                <section id="sec-library" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-book-bookmark" style="color: var(--success);"></i> Add Book / Study Material</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>Book Title</label>
+                                <input type="text" id="bkTitle" placeholder="e.g. Complete Python Guide & Exercises">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>Author / Writer</label>
+                                <input type="text" id="bkAuthor" value="Nazim Mustafa">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select id="bkCategory"><option value="">-- General / No Category --</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Access Type</label>
+                                <select id="bkAccessType" onchange="toggleBookPaidFields()">
+                                    <option value="Free" selected>Free (Direct Drive Access)</option>
+                                    <option value="Paid">Paid (Require Payment)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="bkPriceGroup" style="display: none;">
+                                <label>Price ($)</label>
+                                <input type="number" id="bkPrice" placeholder="e.g. 15" value="15">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Book Cover Picture</label>
+                            <input type="text" id="bkPic" placeholder="Enter Picture URL or upload...">
+                            <div class="upload-box">
+                                <label class="upload-btn-label">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload Cover to ImgBB
+                                    <input type="file" accept="image/*" style="display:none;" onchange="uploadImage(this, 'bkPic', 'bkPicStatus')">
+                                </label>
+                                <span class="upload-status" id="bkPicStatus">Optional: Host cover via ImgBB</span>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Google Drive Link (PDF / Folder)</label>
+                            <input type="text" id="bkDriveLink" placeholder="https://drive.google.com/file/d/.../view?usp=sharing">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label>Description / Notes</label>
+                            <textarea id="bkDesc" rows="2" placeholder="Brief book description..."></textarea>
+                        </div>
+                        <button class="btn-success" onclick="addBook()"><i class="fa-solid fa-file-arrow-up"></i> Add Book to Library</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-book"></i> Books in Library</h3>
+                        </div>
+                        <div class="items-list" id="bookList"></div>
+                    </div>
+                </section>
+
+                <!-- 5. CATEGORIES -->
+                <section id="sec-categories" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-layer-group" style="color: #00838F;"></i> Add Category</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>Category Name</label>
+                                <input type="text" id="catName" placeholder="e.g. Web Development, App Development">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label>Category Icon / Picture URL</label>
+                            <input type="text" id="catIcon" placeholder="https://images.unsplash.com/...">
+                            <div class="upload-box">
+                                <label class="upload-btn-label">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload to ImgBB
+                                    <input type="file" accept="image/*" style="display:none;" onchange="uploadImage(this, 'catIcon', 'catIconStatus')">
+                                </label>
+                                <span class="upload-status" id="catIconStatus">Optional: Host icon via ImgBB</span>
+                            </div>
+                        </div>
+                        <button style="background: #00838F;" onclick="addCategory()"><i class="fa-solid fa-plus"></i> Save Category</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-tags"></i> Existing Categories</h3>
+                        </div>
+                        <div class="items-list" id="categoryList"></div>
+                    </div>
+                </section>
+
+                <!-- 6. BANNERS -->
+                <section id="sec-banners" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-images" style="color: #4A148C;"></i> Add Mobile App Banner</h3>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label>Banner Title</label>
+                            <input type="text" id="banTitle" placeholder="e.g. Special 50% Off Flash Sale">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label>Banner Image</label>
+                            <input type="text" id="banUrl" placeholder="Enter Image URL or upload directly...">
+                            <div class="upload-box">
+                                <label class="upload-btn-label">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload to ImgBB
+                                    <input type="file" accept="image/*" style="display:none;" onchange="uploadImage(this, 'banUrl', 'banPicStatus')">
+                                </label>
+                                <span class="upload-status" id="banPicStatus">Optional: Host banner via ImgBB</span>
+                            </div>
+                        </div>
+                        <button onclick="addBanner()"><i class="fa-solid fa-image"></i> Add Banner</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-sliders"></i> Active Banners</h3>
+                        </div>
+                        <div class="items-list" id="bannerList"></div>
+                    </div>
+                </section>
+
+                <!-- 7. PAYMENT ACCOUNTS (BANKS) -->
+                <section id="sec-banks" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-building-columns" style="color: var(--primary);"></i> Add Bank Account / Payment Method</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Bank / Wallet Name</label>
+                                <input type="text" id="bName" placeholder="e.g. Meezan Bank, HBL, Allied Bank">
+                            </div>
+                            <div class="form-group">
+                                <label>Account Title / Owner Name</label>
+                                <input type="text" id="bOwner" value="Nazim Mustafa">
+                            </div>
+                            <div class="form-group">
+                                <label>Account / IBAN Number</label>
+                                <input type="text" id="bNum" placeholder="e.g. PK00MEZN000123456789">
+                            </div>
+                        </div>
+                        <button onclick="addBank()"><i class="fa-solid fa-plus"></i> Save Payment Account</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-credit-card"></i> Existing Payment Methods</h3>
+                        </div>
+                        <div class="items-list" id="bankList"></div>
+                    </div>
+                </section>
+
+                <!-- 8. ORDERS & VERIFICATIONS -->
+                <section id="sec-orders" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-cart-shopping" style="color: var(--success);"></i> Student Orders & Approvals</h3>
+                            <span id="orderStats" style="font-size: 13px; font-weight: bold; color: var(--primary);">0 Orders</span>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">
+                            Approve student transaction receipts to unlock access for their email.
+                        </p>
+                        <div class="items-list" id="orderList"></div>
+                    </div>
+                </section>
+
+                <!-- 9. INSTRUCTORS & CONTENT APPROVAL -->
+                <section id="sec-instructors" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-user-check" style="color: var(--primary);"></i> Instructor Applications</h3>
+                        </div>
+                        <div class="items-list" id="instrAppList"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-hourglass-half" style="color: var(--warning);"></i> Pending Content Approvals</h3>
+                        </div>
+                        <div class="items-list" id="pendingContentList"></div>
+                    </div>
+                </section>
+
+                <!-- 10. SUPPORT & POLICIES -->
+                <section id="sec-support" class="page-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-headset" style="color: var(--secondary);"></i> Support & Policy Settings</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>WhatsApp Number</label>
+                                <input type="text" id="suppWhatsapp" value="+923105784772">
+                            </div>
+                            <div class="form-group">
+                                <label>WhatsApp Channel URL</label>
+                                <input type="text" id="suppWhatsappChan" value="https://whatsapp.com">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Facebook Profile / Page URL</label>
+                                <input type="text" id="suppFb" value="https://facebook.com">
+                            </div>
+                            <div class="form-group">
+                                <label>YouTube Channel URL</label>
+                                <input type="text" id="suppYoutube" value="https://youtube.com">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Privacy Policy URL</label>
+                                <input type="text" id="suppPrivacy" value="https://example.com/privacy">
+                            </div>
+                            <div class="form-group">
+                                <label>Return / Refund Policy URL</label>
+                                <input type="text" id="suppReturn" value="https://example.com/return">
+                            </div>
+                        </div>
+                        <button class="btn-secondary" onclick="saveSupportSettings()"><i class="fa-solid fa-floppy-disk"></i> Save Support & Policy Info</button>
+                    </div>
+                </section>
+
+                <!-- 11. SETTINGS & IMGBB API -->
+                <section id="sec-settings" class="page-section">
+                    <div class="card" style="border-left: 5px solid #00838F;">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-cloud-arrow-up" style="color: #00838F;"></i> ImgBB Image Hosting API Setup</h3>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+                            Enter your free ImgBB API Key here. Get one for free at <a href="https://api.imgbb.com/" target="_blank" style="color: #0284c7; font-weight: bold;">api.imgbb.com</a>.
+                        </p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>ImgBB API Key</label>
+                                <input type="text" id="imgbbApiKeyInput" placeholder="Enter your ImgBB API Key here...">
+                            </div>
+                        </div>
+                        <button style="background: #00838F;" onclick="saveImgbbKey()"><i class="fa-solid fa-key"></i> Save ImgBB API Key</button>
+                    </div>
+
+                    <div class="card" style="border-left: 5px solid var(--warning);">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-database" style="color: var(--warning);"></i> Firebase Credentials Setup</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>Database URL</label>
+                                <input type="text" id="dbUrl" value="https://ai-academy-48993-default-rtdb.firebaseio.com">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>API Key</label>
+                                <input type="text" id="apiKey" value="AIzaSyCL1WOkrFOQVdmY_oTbQqfaRSaaWSnIyFw">
+                            </div>
+                        </div>
+                        <button onclick="connectFirebase()"><i class="fa-solid fa-rotate"></i> Reconnect Database</button>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL: MANAGE COURSE LECTURES -->
+    <div id="lectureModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+                <div>
+                    <h3 id="modalCourseTitle" style="color: var(--primary); font-size: 17px;">Manage Lectures</h3>
+                    <small id="modalCourseId" style="color: var(--text-muted);"></small>
+                </div>
+                <button onclick="closeLectureModal()" class="btn-danger btn-sm"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="modalLecturesList" style="max-height: 240px; overflow-y: auto; margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;"></div>
+
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1.5px solid #cbd5e1;">
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Lecture Title</label>
+                        <input type="text" id="mNewLecTitle" placeholder="e.g. 4. Advanced State Management">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Seq</label>
+                        <input type="number" id="mNewLecSeq" value="1">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Video URL (YouTube / Google Drive Preview)</label>
+                    <input type="text" id="mNewLecUrl" placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
+                        <input type="checkbox" id="mNewLecFree" style="width:auto;"> Is this Lecture Free for Preview?
+                    </label>
+                </div>
+                <button id="modalLecBtn" onclick="saveNewLectureToCourse()" class="btn-success" style="width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-plus"></i> Save Lecture to Course
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        let db = null;
+        let auth = null;
+        let currentModalCourseId = null;
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCL1WOkrFOQVdmY_oTbQqfaRSaaWSnIyFw",
+            authDomain: "ai-academy-48993.firebaseapp.com",
+            databaseURL: "https://ai-academy-48993-default-rtdb.firebaseio.com",
+            projectId: "ai-academy-48993",
+            storageBucket: "ai-academy-48993.firebasestorage.app"
+        };
+
+        // SIDEBAR TOGGLE LOGIC (FIX FOR MOBILE & DESKTOP)
+        function toggleSidebar(forceOpen) {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (forceOpen === true) {
+                sidebar.classList.add('open');
+                backdrop.classList.add('active');
+            } else if (forceOpen === false) {
+                sidebar.classList.remove('open');
+                backdrop.classList.remove('active');
+            } else {
+                sidebar.classList.toggle('open');
+                backdrop.classList.toggle('active');
+            }
+        }
+
+        // TAB SWITCHER
+        function switchTab(tabId) {
+            // Hide all sections
+            document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
+            // Remove active from all nav items
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+
+            // Show selected section
+            const targetSection = document.getElementById('sec-' + tabId);
+            if (targetSection) targetSection.classList.add('active');
+
+            // Highlight menu item
+            const activeNav = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+            if (activeNav) activeNav.classList.add('active');
+
+            // Close mobile drawer when an item is selected
+            toggleSidebar(false);
+
+            // Update top title
+            const titles = {
+                dashboard: 'Dashboard Overview',
+                courses: 'Courses & Multiple Lectures Builder',
+                live: 'Live Video Sessions Management',
+                library: 'Digital Library & PDF Books',
+                categories: 'Categories Configuration',
+                banners: 'Mobile App Banners',
+                banks: 'Bank Accounts & Payment Methods',
+                orders: 'Student Orders & Approvals',
+                instructors: 'Instructor Applications & Approvals',
+                support: 'Support & Policy Settings',
+                settings: 'System Settings & ImgBB API'
+            };
+            document.getElementById('pageTitle').innerText = titles[tabId] || 'Admin Panel';
+        }
+
+        // Initialize Firebase
+        function connectFirebase() {
+            const url = document.getElementById('dbUrl').value.trim();
+            const key = document.getElementById('apiKey').value.trim();
+            firebaseConfig.apiKey = key;
+            firebaseConfig.databaseURL = url;
+
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                auth = firebase.auth();
+                db = firebase.database();
+                
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        enterDashboard(user.email);
+                    }
+                });
+            } catch(e) {
+                updateStatus(false, e.message);
+            }
+        }
+
+        function enterDashboard(email) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'flex';
+            document.getElementById('adminUserTag').innerText = email || 'Admin Active';
+            updateStatus(true, "Connected Database");
+            listenData();
+            loadSupportSettings();
+        }
+
+        function updateStatus(connected, text) {
+            const badge = document.getElementById('connBadge');
+            if (!badge) return;
+            badge.innerHTML = `<i class="fa-solid fa-circle-dot"></i> ${text}`;
+            badge.className = connected ? "status-badge connected" : "status-badge disconnected";
+        }
+
+        function loginAdmin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const pass = document.getElementById('loginPassword').value.trim();
+            const alertBox = document.getElementById('loginAlert');
+
+            if (!email || !pass) {
+                alertBox.innerText = "Please enter both Email and Password";
+                alertBox.style.display = "block";
+                return;
+            }
+
+            auth.signInWithEmailAndPassword(email, pass)
+                .then(userCred => {
+                    alertBox.style.display = "none";
+                    enterDashboard(userCred.user.email);
+                })
+                .catch(err => {
+                    alertBox.innerText = err.message;
+                    alertBox.style.display = "block";
+                });
+        }
+
+        function bypassLogin() {
+            enterDashboard("Admin (Direct Access)");
+        }
+
+        function logoutAdmin() {
+            if (confirm("Are you sure you want to log out?")) {
+                if (auth) auth.signOut();
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('appContainer').style.display = 'none';
+            }
+        }
+
+        // ImgBB API Engine
+        function saveImgbbKey() {
+            const key = document.getElementById('imgbbApiKeyInput').value.trim();
+            if (!key) return alert("Please enter an ImgBB API Key");
+            localStorage.setItem('imgbb_api_key', key);
+            alert("ImgBB API Key saved successfully!");
+        }
+
+        async function uploadImage(fileInput, targetInputId, statusId) {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const apiKey = localStorage.getItem('imgbb_api_key') || document.getElementById('imgbbApiKeyInput').value.trim();
+            if (!apiKey) {
+                alert("Please save your ImgBB API Key in Settings first!");
+                switchTab('settings');
+                return;
+            }
+
+            const status = document.getElementById(statusId);
+            if (status) status.innerHTML = `<span style="color:#0284c7;"><i class="fa-solid fa-spinner fa-spin"></i> Uploading to ImgBB...</span>`;
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const res = await response.json();
+
+                if (res.success) {
+                    document.getElementById(targetInputId).value = res.data.url;
+                    if (status) status.innerHTML = `<span style="color:#16a34a;"><i class="fa-solid fa-check"></i> Uploaded! Ready to save.</span>`;
+                } else {
+                    alert("Upload failed: " + (res.error ? res.error.message : 'Unknown error'));
+                    if (status) status.innerHTML = `<span style="color:#dc2626;">Upload failed!</span>`;
+                }
+            } catch (e) {
+                alert("Upload network error: " + e.message);
+                if (status) status.innerHTML = `<span style="color:#dc2626;">Error</span>`;
+            }
+        }
+
+        // Realtime Data Sync
+        function listenData() {
+            if (!db) return;
+
+            // Counters
+            db.ref('courses').on('value', snap => {
+                document.getElementById('dashCoursesCount').innerText = snap.numChildren();
+            });
+            db.ref('live_sessions').on('value', snap => {
+                document.getElementById('dashLiveCount').innerText = snap.numChildren();
+            });
+            db.ref('books').on('value', snap => {
+                document.getElementById('dashBooksCount').innerText = snap.numChildren();
+            });
+
+            // 1. Orders
+            db.ref('verifications').on('value', snap => {
+                const list = document.getElementById('orderList');
+                const stats = document.getElementById('orderStats');
+                list.innerHTML = "";
+                let count = 0;
+                let pendingCount = 0;
+
+                if (!snap.exists()) {
+                    list.innerHTML = `<div style="text-align:center; color:#888; padding:20px;">No student orders received yet.</div>`;
+                    stats.innerText = "0 Orders";
+                    document.getElementById('dashPendingCount').innerText = 0;
+                    return;
+                }
+
+                snap.forEach(child => {
+                    count++;
+                    const item = child.val();
+                    const key = child.key;
+                    const isApproved = item.status && item.status.toLowerCase() === 'approved';
+                    if (!isApproved) pendingCount++;
+
+                    let orderTypeLabel = 'COURSE ORDER';
+                    let orderTitle = item.courseTitle || 'Course #' + (item.courseId || 'General');
+
+                    if (item.bookId) {
+                        orderTypeLabel = 'DIGITAL BOOK ORDER';
+                        orderTitle = item.bookTitle || 'Book #' + item.bookId;
+                    } else if (item.liveSessionId) {
+                        orderTypeLabel = 'LIVE CLASS ORDER';
+                        orderTitle = item.courseTitle || 'Live Session #' + item.liveSessionId;
+                    }
+
+                    const div = document.createElement('div');
+                    div.className = 'item-card';
+                    div.style.flexDirection = 'column';
+                    div.style.alignItems = 'stretch';
+                    div.style.borderLeft = isApproved ? '5px solid #2E7D32' : '5px solid #FF9800';
+
+                    div.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap;">
+                            <div>
+                                <span style="background:#4A148C; color:white; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:bold;">${orderTypeLabel}</span>
+                                <span style="font-size:11px; font-weight:bold; color:${isApproved ? '#2E7D32' : '#E65100'}; margin-left:6px;">
+                                    ● ${isApproved ? 'APPROVED' : 'PENDING'}
+                                </span>
+                                <div style="font-size:15px; font-weight:bold; margin-top:4px;">${orderTitle}</div>
+                            </div>
+                            <span style="font-size:12px; color:#666; font-family:monospace;">TID: <strong>${item.transactionId || 'N/A'}</strong></span>
+                        </div>
+                        <div style="font-size:13px; color:#333; margin:8px 0; background:#f8fafc; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0;">
+                            <div><strong>Student Email:</strong> <span style="color:#0284c7; font-weight:bold;">${item.userEmail || 'Guest'}</span></div>
+                        </div>
+                        <div style="display:flex; gap:8px; justify-content:flex-end;">
+                            ${!isApproved ? `
+                                <button onclick="approveOrder('${key}')" class="btn-success btn-sm"><i class="fa-solid fa-check"></i> Approve Order</button>
+                            ` : `
+                                <button onclick="revokeOrder('${key}')" class="btn-sm" style="background:#f59e0b;"><i class="fa-solid fa-rotate-left"></i> Set Pending</button>
+                            `}
+                            <button class="btn-danger btn-sm" onclick="deleteItem('verifications', '${key}')"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+
+                stats.innerText = `${count} Total (${pendingCount} Pending)`;
+                document.getElementById('dashPendingCount').innerText = pendingCount;
+            });
+
+            // 2. Courses
+            db.ref('courses').on('value', snap => {
+                const list = document.getElementById('courseList');
+                list.innerHTML = "";
+                if (!snap.exists()) {
+                    list.innerHTML = `<div style="text-align:center; color:#888; padding:15px;">No courses created yet.</div>`;
+                    return;
+                }
+                snap.forEach(child => {
+                    const course = child.val();
+                    const key = child.key;
+                    let lecs = [];
+                    if (course.lectures) {
+                        lecs = Array.isArray(course.lectures) ? course.lectures.filter(l => l) : Object.keys(course.lectures).map(k => ({...course.lectures[k], id: k}));
+                    }
+                    const div = document.createElement('div');
+                    div.className = 'item-card';
+                    div.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            ${course.pictureLink ? `<img src="${course.pictureLink}" style="width:50px; height:50px; border-radius:8px; object-fit:cover;" onerror="this.style.display='none'">` : ''}
+                            <div>
+                                <strong style="font-size:15px;">${course.title}</strong>
+                                <div style="font-size:12.5px; color:#64748b; margin-top:2px;">
+                                    Price: <strong>$${course.price || 0}</strong> | <span style="background:#e2e8f0; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:bold;">${lecs.length} Lectures</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-secondary btn-sm" onclick="openLectureModal('${key}', '${encodeURIComponent(course.title)}')"><i class="fa-solid fa-list"></i> Lectures</button>
+                            <button class="btn-danger btn-sm" onclick="deleteItem('courses', '${key}')"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+
+            // 3. Live Sessions
+            db.ref('live_sessions').on('value', snap => {
+                const list = document.getElementById('liveList');
+                list.innerHTML = "";
+                snap.forEach(child => {
+                    const item = child.val();
+                    const isPaid = item.isPaid || (item.price && item.price > 0);
+                    const div = document.createElement('div');
+                    div.className = 'item-card';
+                    div.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            ${item.pictureUrl ? `<img src="${item.pictureUrl}" style="width:50px; height:50px; border-radius:8px; object-fit:cover;" onerror="this.style.display='none'">` : ''}
+                            <div>
+                                <strong>${item.title}</strong>
+                                <span style="color:${isPaid ? '#E65100' : '#2E7D32'}; font-weight:bold; font-size:12px; margin-left:6px;">
+                                    ${isPaid ? `[$${item.price} / ${item.paymentInterval || 'Weekly'}]` : '[FREE]'}
+                                </span>
+                                <div style="font-size:12px; color:#64748b; margin-top:2px;">${item.startTime || 'Time not specified'}</div>
+                            </div>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="deleteItem('live_sessions', '${child.key}')"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+
+            // 4. Books
+            db.ref('books').on('value', snap => {
+                const list = document.getElementById('bookList');
+                list.innerHTML = "";
+                snap.forEach(child => {
+                    const book = child.val();
+                    const div = document.createElement('div');
+                    div.className = 'item-card';
+                    div.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            ${book.pictureLink ? `<img src="${book.pictureLink}" style="width:40px; height:52px; border-radius:4px; object-fit:cover;" onerror="this.style.display='none'">` : ''}
+                            <div>
+                                <strong>${book.title}</strong>
+                                <div style="font-size:12px; color:#64748b;">By ${book.author || 'Nazim Mustafa'}</div>
+                            </div>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="deleteItem('books', '${child.key}')"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+
+            // 5. Categories
+            db.ref('categories').on('value', snap => {
+                const list = document.getElementById('categoryList');
+                const cCat = document.getElementById('cCategory');
+                const bkCat = document.getElementById('bkCategory');
+                list.innerHTML = "";
+
+                let cCatOpts = '<option value="">-- No Category (General) --</option>';
+                let bkCatOpts = '<option value="">-- General / No Category --</option>';
+
+                snap.forEach(child => {
+                    const cat = child.val();
+                    const catName = cat.name || cat.title || 'Category';
+                    cCatOpts += `<option value="${child.key}">${catName}</option>`;
+                    bkCatOpts += `<option value="${child.key}">${catName}</option>`;
+
+                    const div = document.createElement('div');
+                    div.className = 'item-card';
+                    div.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${cat.iconUrl ? `<img src="${cat.iconUrl}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;">` : ''}
+                            <strong>${catName}</strong>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="deleteItem('categories', '${child.key}')"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                    list.appendChild(div);
+                });
+
+                if (cCat) cCat.innerHTML = cCatOpts;
+                if (bkCat) bkCat.innerHTML = bkCatOpts;
+            });
+
+            // 6. Banners
+            db.ref('banners').on('value', snap => {
+                const list = document.getElementById('bannerList');
+                list.innerHTML = "";
+                snap.forEach(child => {
+                    const item = child.val();
+                    const div = document.createElement('div');
+                    div.className = 'item-card';
+                    div.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            ${item.imageUrl ? `<img src="${item.imageUrl}" style="width:80px; height:45px; border-radius:6px; object-fit:cover;">` : ''}
+                            <strong>${item.title || 'Banner'}</strong>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="deleteItem('banners', '${child.key}')"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+
+            // 7. Banks
+            db.ref('payment_methods').on('value', snap => {
+                const list = document.getElementById('bankList');
+                list.innerHTML = "";
+                snap.forEach(child => {
+                    const item = child.val();
+                    const div = document.createElement('div');
+                    div.className = 'item-card';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${item.name}</strong>
+                            <div style="font-size:12px; color:#64748b;">${item.accountNumber} (${item.accountName})</div>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="deleteItem('payment_methods', '${child.key}')"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+
+            // 8. Instructors
+            db.ref('instructor_applications').on('value', snap => {
+                const list = document.getElementById('instrAppList');
+                list.innerHTML = "";
+                if (!snap.exists()) {
+                    list.innerHTML = `<div style="text-align:center; color:#888; padding:12px;">No pending instructor applications.</div>`;
+                    return;
+                }
+                snap.forEach(child => {
+                    const app = child.val();
+                    if (app.status !== "Pending") return;
+                    const div = document.createElement('div');
+                    div.className = 'item-card';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${app.userName}</strong> (${app.userEmail})<br>
+                            <small>Mobile: ${app.details ? app.details.mobileNumber : 'N/A'}</small>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button onclick="updateInstructor('${child.key}', '${app.userId}', true)" class="btn-success btn-sm">Approve</button>
+                            <button onclick="updateInstructor('${child.key}', '${app.userId}', false)" class="btn-danger btn-sm">Reject</button>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+        }
+
+        // Functions
+        function addCourse() {
+            const title = document.getElementById('cTitle').value.trim();
+            const pic = document.getElementById('cPic').value.trim();
+            const price = parseFloat(document.getElementById('cPrice').value) || 0;
+            const discount = parseFloat(document.getElementById('cDiscount').value) || 0;
+            const desc = document.getElementById('cDesc').value.trim();
+            const catSelect = document.getElementById('cCategory');
+            const catId = catSelect ? catSelect.value : '';
+            const catName = (catId && catSelect.selectedIndex >= 0) ? catSelect.options[catSelect.selectedIndex].text : '';
+
+            if (!title) return alert("Please enter course title");
+
+            const lectureRows = document.querySelectorAll('#newCourseLectures .lecture-row');
+            const lectures = [];
+            lectureRows.forEach((row, idx) => {
+                const lTitle = row.querySelector('.lec-title').value.trim();
+                const lUrl = row.querySelector('.lec-url').value.trim();
+                const lSeq = parseInt(row.querySelector('.lec-seq').value) || (idx + 1);
+                if (lTitle || lUrl) {
+                    lectures.push({
+                        id: 'lec_' + Date.now() + '_' + idx,
+                        title: lTitle || ('Lecture ' + lSeq),
+                        videoLink: lUrl,
+                        sequence: lSeq
+                    });
+                }
+            });
+
+            db.ref('courses').push({
+                title: title,
+                pictureLink: pic,
+                price: price,
+                discountPrice: discount,
+                shortDescription: desc,
+                categoryId: catId,
+                categoryName: catName,
+                isPaid: price > 0,
+                lectures: lectures
+            }).then(() => {
+                alert("Course created successfully!");
+                document.getElementById('cTitle').value = "";
+                document.getElementById('cPic').value = "";
+                document.getElementById('cPrice').value = "";
+                document.getElementById('cDiscount').value = "";
+                document.getElementById('cDesc').value = "";
+            });
+        }
+
+        function addLiveSession() {
+            const title = document.getElementById('lTitle').value.trim();
+            const isPaid = document.getElementById('lAccessType').value === 'Paid';
+            const price = isPaid ? (parseFloat(document.getElementById('lPrice').value) || 10.0) : 0.0;
+            const freq = isPaid ? document.getElementById('lFreq').value : 'Free';
+            const pic = document.getElementById('lPic').value.trim();
+            const meet = document.getElementById('lMeet').value.trim();
+            const time = document.getElementById('lTime').value.trim();
+            const instructor = document.getElementById('lInstructor').value.trim();
+
+            if (!title) return alert("Please enter session title");
+
+            db.ref('live_sessions').push({
+                title: title,
+                isPaid: isPaid,
+                price: price,
+                paymentInterval: freq,
+                pictureUrl: pic,
+                googleMeetLink: meet,
+                startTime: time,
+                instructor: instructor
+            }).then(() => {
+                alert("Live session created!");
+                document.getElementById('lTitle').value = "";
+                document.getElementById('lPic').value = "";
+                document.getElementById('lMeet').value = "";
+                document.getElementById('lTime').value = "";
+            });
+        }
+
+        function addBook() {
+            const title = document.getElementById('bkTitle').value.trim();
+            const author = document.getElementById('bkAuthor').value.trim();
+            const pic = document.getElementById('bkPic').value.trim();
+            const catSelect = document.getElementById('bkCategory');
+            const catId = catSelect ? catSelect.value : '';
+            const catName = (catId && catSelect.selectedIndex >= 0) ? catSelect.options[catSelect.selectedIndex].text : '';
+            const isPaid = document.getElementById('bkAccessType').value === 'Paid';
+            const price = isPaid ? (parseFloat(document.getElementById('bkPrice').value) || 0) : 0;
+            const drive = document.getElementById('bkDriveLink').value.trim();
+            const desc = document.getElementById('bkDesc').value.trim();
+
+            if (!title) return alert("Please enter book title");
+
+            db.ref('books').push({
+                title: title,
+                author: author || "Nazim Mustafa",
+                pictureLink: pic,
+                categoryId: catId,
+                categoryName: catName,
+                isPaid: isPaid,
+                price: price,
+                driveLink: drive,
+                description: desc
+            }).then(() => {
+                alert("Book added to library!");
+                document.getElementById('bkTitle').value = "";
+                document.getElementById('bkPic').value = "";
+                document.getElementById('bkDriveLink').value = "";
+                document.getElementById('bkDesc').value = "";
+            });
+        }
+
+        function addCategory() {
+            const name = document.getElementById('catName').value.trim();
+            const icon = document.getElementById('catIcon').value.trim();
+            if (!name) return alert("Enter category name");
+            db.ref('categories').push({ name: name, iconUrl: icon }).then(() => {
+                alert("Category added!");
+                document.getElementById('catName').value = "";
+                document.getElementById('catIcon').value = "";
+            });
+        }
+
+        function addBanner() {
+            const title = document.getElementById('banTitle').value.trim();
+            const url = document.getElementById('banUrl').value.trim();
+            if (!url) return alert("Please enter image URL");
+            db.ref('banners').push({ title: title, imageUrl: url }).then(() => {
+                alert("Banner added!");
+                document.getElementById('banTitle').value = "";
+                document.getElementById('banUrl').value = "";
+            });
+        }
+
+        function addBank() {
+            const name = document.getElementById('bName').value.trim();
+            const owner = document.getElementById('bOwner').value.trim();
+            const num = document.getElementById('bNum').value.trim();
+            if (!name || !num) return alert("Please enter bank details");
+            db.ref('payment_methods').push({ name: name, accountName: owner, accountNumber: num }).then(() => {
+                alert("Bank account added!");
+                document.getElementById('bName').value = "";
+                document.getElementById('bNum').value = "";
+            });
+        }
+
+        function deleteItem(node, key) {
+            if (confirm("Are you sure you want to delete this permanently?")) {
+                db.ref(node).child(key).remove();
+            }
+        }
+
+        function approveOrder(key) {
+            db.ref('verifications').child(key).update({ status: 'Approved' }).then(() => alert("Order Approved!"));
+        }
+
+        function revokeOrder(key) {
+            db.ref('verifications').child(key).update({ status: 'Pending' }).then(() => alert("Order set to Pending!"));
+        }
+
+        function updateInstructor(appId, userId, approve) {
+            const status = approve ? "Approved" : "Rejected";
+            db.ref('instructor_applications').child(appId).update({ status: status });
+            if (approve) {
+                db.ref('users').child(userId).update({ role: 'Instructor', isInstructorApproved: true });
+            }
+            alert("Instructor application " + status);
+        }
+
+        function toggleLivePaidFields() {
+            document.getElementById('livePaidRow').style.display = document.getElementById('lAccessType').value === 'Paid' ? 'flex' : 'none';
+        }
+
+        function toggleBookPaidFields() {
+            document.getElementById('bkPriceGroup').style.display = document.getElementById('bkAccessType').value === 'Paid' ? 'flex' : 'none';
+        }
+
+        function addLectureRow() {
+            const container = document.getElementById('newCourseLectures');
+            const count = container.querySelectorAll('.lecture-row').length + 1;
+            const div = document.createElement('div');
+            div.className = 'lecture-row';
+            div.style.cssText = "display:flex; gap:10px; margin-bottom:8px; align-items:center;";
+            div.innerHTML = `
+                <span style="font-weight: bold; font-size: 13px; color: #64748b;">#${count}</span>
+                <input type="text" class="lec-title" placeholder="Lecture Title" style="flex: 2;">
+                <input type="text" class="lec-url" placeholder="YouTube / Drive Video URL" style="flex: 3;">
+                <input type="number" class="lec-seq" value="${count}" style="width: 60px;">
+                <button type="button" class="btn-danger btn-sm" onclick="removeLectureRow(this)"><i class="fa-solid fa-xmark"></i></button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeLectureRow(btn) {
+            btn.closest('.lecture-row').remove();
+        }
+
+        function openLectureModal(courseId, encodedTitle) {
+            currentModalCourseId = courseId;
+            document.getElementById('modalCourseTitle').innerText = "Lectures: " + decodeURIComponent(encodedTitle);
+            document.getElementById('modalCourseId').innerText = "Course ID: " + courseId;
+            document.getElementById('lectureModal').style.display = 'flex';
+            loadModalLectures(courseId);
+        }
+
+        function closeLectureModal() {
+            document.getElementById('lectureModal').style.display = 'none';
+            currentModalCourseId = null;
+        }
+
+        function loadModalLectures(courseId) {
+            db.ref('courses/' + courseId + '/lectures').on('value', snap => {
+                const container = document.getElementById('modalLecturesList');
+                container.innerHTML = "";
+                let lecs = [];
+                if (snap.exists()) {
+                    const val = snap.val();
+                    lecs = Array.isArray(val) ? val.filter(l => l) : Object.keys(val).map(k => ({...val[k], id: k}));
+                }
+                lecs.sort((a,b) => (a.sequence || 0) - (b.sequence || 0));
+
+                if (lecs.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:12px;">No lectures added yet.</div>`;
+                    document.getElementById('mNewLecSeq').value = 1;
+                    return;
+                }
+
+                document.getElementById('mNewLecSeq').value = lecs.length + 1;
+                lecs.forEach((lec, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'item-card';
+                    item.innerHTML = `
+                        <div>
+                            <strong>#${lec.sequence || (idx + 1)} - ${lec.title}</strong>
+                            <div style="font-size:11px; color:#64748b; word-break:break-all;">${lec.videoLink || 'No URL'}</div>
+                        </div>
+                        <button class="btn-danger btn-sm" onclick="deleteLectureFromCourse('${courseId}', '${lec.id || idx}')"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                    container.appendChild(item);
+                });
+            });
+        }
+
+        function saveNewLectureToCourse() {
+            if (!currentModalCourseId) return;
+            const title = document.getElementById('mNewLecTitle').value.trim();
+            const url = document.getElementById('mNewLecUrl').value.trim();
+            const seq = parseInt(document.getElementById('mNewLecSeq').value) || 1;
+            const isFree = document.getElementById('mNewLecFree').checked;
+
+            if (!title) return alert("Please enter lecture title");
+
+            const ref = db.ref('courses/' + currentModalCourseId + '/lectures').push();
+            ref.set({ id: ref.key, title: title, videoLink: url, sequence: seq, isFree: isFree }).then(() => {
+                alert("Lecture added!");
+                document.getElementById('mNewLecTitle').value = "";
+                document.getElementById('mNewLecUrl').value = "";
+                document.getElementById('mNewLecFree').checked = false;
+            });
+        }
+
+        function deleteLectureFromCourse(courseId, lecId) {
+            if (confirm("Delete lecture?")) {
+                db.ref('courses/' + courseId + '/lectures/' + lecId).remove();
+            }
+        }
+
+        function saveSupportSettings() {
+            db.ref('support_settings').set({
+                whatsappNumber: document.getElementById('suppWhatsapp').value.trim(),
+                whatsappChannelUrl: document.getElementById('suppWhatsappChan').value.trim(),
+                facebookUrl: document.getElementById('suppFb').value.trim(),
+                youtubeUrl: document.getElementById('suppYoutube').value.trim(),
+                privacyPolicyUrl: document.getElementById('suppPrivacy').value.trim(),
+                returnPolicyUrl: document.getElementById('suppReturn').value.trim()
+            }).then(() => alert("Support settings saved!"));
+        }
+
+        function loadSupportSettings() {
+            db.ref('support_settings').once('value', snap => {
+                if (snap.exists()) {
+                    const s = snap.val();
+                    if (s.whatsappNumber) document.getElementById('suppWhatsapp').value = s.whatsappNumber;
+                    if (s.whatsappChannelUrl) document.getElementById('suppWhatsappChan').value = s.whatsappChannelUrl;
+                    if (s.facebookUrl) document.getElementById('suppFb').value = s.facebookUrl;
+                    if (s.youtubeUrl) document.getElementById('suppYoutube').value = s.youtubeUrl;
+                    if (s.privacyPolicyUrl) document.getElementById('suppPrivacy').value = s.privacyPolicyUrl;
+                    if (s.returnPolicyUrl) document.getElementById('suppReturn').value = s.returnPolicyUrl;
+                }
+            });
+        }
+
+        // On Load Init
+        window.onload = function() {
+            const savedKey = localStorage.getItem('imgbb_api_key');
+            if (savedKey) document.getElementById('imgbbApiKeyInput').value = savedKey;
+            connectFirebase();
+        };
+    </script>
+</body>
+</html>
